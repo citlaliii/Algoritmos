@@ -1,0 +1,85 @@
+import tkinter
+import tkinter as tk
+from tkinter import filedialog
+import pandas as pd
+
+# Función para combinar todos los elementos
+def combinar_todo():
+    print("Combinando todo")
+    nueva_ventana = tkinter.Toplevel()
+    nueva_ventana.geometry("300x200")
+    nueva_ventana.title("Combinar Todo")
+    
+    etiqueta = tkinter.Label(nueva_ventana, text="¡Se ha combinado todo!")
+    etiqueta.pack(pady=20)
+
+# Función para combinar por pares
+def combina_pares():
+    print("Combinando por pares")
+    nueva_ventana = tkinter.Toplevel()
+    nueva_ventana.geometry("300x200")
+    nueva_ventana.title("Combinando por pares")
+    
+    etiqueta = tkinter.Label(nueva_ventana, text="¡Se ha combinado todo!")
+    etiqueta.pack(pady=20)
+
+# Función para crear y mostrar la nueva ventana
+def abrir_ventana():
+    nueva_ventana = tkinter.Toplevel(ventana)
+    nueva_ventana.geometry("700x600")
+    nueva_ventana.focus_set()
+
+    # Botón "Combinar Todo"
+    boton_todo = tkinter.Button(nueva_ventana, text="Combinar Todo", command=combinar_todo, **estilo_boton)
+    boton_todo.pack(pady=10)
+
+    # Botón "Combinar por Pares"
+    boton_pares = tkinter.Button(nueva_ventana, text="Combinar por Pares", command=combina_pares, **estilo_boton)
+    boton_pares.pack(pady=10)
+
+#Función para abrir el archivo csv
+def csv_archivo():
+    root = tk.Tk()
+    root.withdraw()
+    
+    file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+
+    #Si no se selecciona un archivo
+    if not file_path:
+        print("No hay ningun archivo seleccionado.....")
+        return
+
+    #Abrir archivo
+    df = pd.read_csv(file_path)
+    print("Archivo seleccionado:", file_path)
+    
+
+
+# Código principal
+ventana = tkinter.Tk()
+ventana.geometry("700x600")
+estilo_etiqueta = {
+    "font": ("Arial", 16),
+    "bg": "blue",
+    "fg": "white",
+}
+
+etiqueta = tkinter.Label(ventana, text="Bienvenidos", **estilo_etiqueta)
+etiqueta.pack(fill=tkinter.X)
+
+# Estilo para los botones
+estilo_boton = {
+    "font": ("Arial", 12),
+    "bg": "#4CAF50",  
+    "fg": "white",
+}
+
+# Crear un botón en la ventana principal
+button1 = tk.Button(ventana, text="Abrir archivo CSV",**estilo_boton, command=csv_archivo)
+button1.pack(side=tkinter.TOP, padx=20, pady=10)
+
+# Botón "Variar"
+boton2 = tkinter.Button(ventana, text="Variar", command=abrir_ventana, **estilo_boton)
+boton2.pack(side=tkinter.BOTTOM, anchor="se", padx=20, pady=10)
+
+ventana.mainloop()
