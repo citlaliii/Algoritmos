@@ -1,0 +1,452 @@
+import tkinter
+import tkinter as tk
+from tkinter import filedialog
+import pandas as pd
+import csv
+
+# Declaramos la variable global string_modificado
+strings_modificados = []
+
+def leer_archivo_csv(ruta):
+    with open(ruta, 'r', newline='') as archivo_csv:
+        lector_csv = csv.reader(archivo_csv)
+        datos = list(lector_csv)
+    return datos
+
+def escribir_archivo_csv(ruta, datos):
+    with open(ruta, 'w', newline='') as archivo_csv:
+        escritor_csv = csv.writer(archivo_csv)
+        escritor_csv.writerows(datos)
+
+def modificar_string(cadena, posicion, alteracion):
+    # Asegurarse de que la posición sea válida
+    #if posicion < 1 or posicion > len(cadena):
+        #print("Posición inválida")
+        #return cadena
+    
+    # Convertir la posición a índice
+    indice = posicion
+    
+    # Modificar el string en la posición especificada con la alteración
+    string_modificado = cadena[:indice] + alteracion + cadena[indice+1:]
+    
+    return string_modificado
+
+def procesar_cadena(cadena, df):
+    cadenas_modificadas = []  # Lista para almacenar las cadenas modificadas
+    
+    # Recorrer la cadena de 5 en 5 con una ventana de tamaño 10
+    for i in range(0, len(cadena) - 9, 5):
+        ventana = cadena[i:i+10]  # Obtener la ventana de tamaño 10
+        cadena_modificada = cadena[:]  # Crear una copia de la cadena original
+        cadena_acumulada = cadena[:]  # Crear una copia de la cadena original para almacenar modificaciones acumuladas
+        
+        modificaciones_aplicadas = 0  # Contador de modificaciones aplicadas en la ventana actual
+        posiciones = []  # Lista para almacenar las posiciones encontradas en la ventana
+        
+        # Lista para almacenar las cadenas modificadas
+        cadenas_modificaciones = []
+        
+        # Buscar las modificaciones en la ventana actual
+        for index, row in df.iterrows():
+            if row['posicion'] >= i and row['posicion'] <= i + 9:  # Ajuste de la posición
+                # Reemplazar los valores NaN por cadenas vacías
+                alteracion = row['alteracion']
+                if pd.isna(alteracion):
+                    alteracion = ""
+                
+                # Realizar la modificación en la ventana
+                ventana = modificar_string(ventana, row['posicion'] - i, alteracion)
+                cadena_modificada = modificar_string(cadena, row['posicion'], alteracion)
+                cadena_acumulada = modificar_string(cadena_acumulada, row['posicion'], alteracion)
+                modificaciones_aplicadas += 1
+                posiciones.append(row['posicion'])  # Agregar la posición a la lista
+                
+                # Almacenar la cadena modificada en la lista de cadenas de modificaciones
+                cadenas_modificaciones.append(cadena_modificada)
+        
+        # Si no se aplicaron modificaciones en esta ventana, solo agregar la cadena original
+        if modificaciones_aplicadas == 0:
+            cadenas_modificadas.append({'Num_cadena': i // 5 + 1, 'cadena_original': cadena, 'cadena_modificada': 'nul',
+                                        'cadena_acumulada': 'null', 'posiciones': []})
+            continue
+
+        # Ordenar las posiciones encontradas de menor a mayor
+        posiciones.sort()
+        
+        # Crear un diccionario para almacenar las cadenas modificadas en columnas separadas
+        cadena_modificada_dict = {'cadena_modificada_' + str(idx+1): mod for idx, mod in enumerate(cadenas_modificaciones)}
+        
+        # Almacenar las cadenas modificadas y las posiciones en la lista
+        cadenas_modificadas.append({'Num_cadena': i // 5 + 1, 'cadena_original': cadena,
+                                    **cadena_modificada_dict, 'cadena_acumulada': cadena_acumulada, 'posiciones': posiciones})
+    
+    # Guardar las cadenas modificadas en un archivo CSV
+    df_resultado = pd.DataFrame(cadenas_modificadas)
+    
+    # Reorganizar las columnas para mover 'posiciones' junto a 'Num_cadena'
+    columnas = ['Num_cadena', 'cadena_original'] + [col for col in df_resultado.columns if col.startswith('cadena_modificada_')] + ['cadena_acumulada', 'posiciones']
+    df_resultado = df_resultado[columnas]
+    
+    df_resultado.to_csv('cadenas.csv', index=False)  # Escribir el DataFrame en un archivo CSV
+
+def abrir_ventana():
+    nueva_ventana2 = tkinter.Toplevel(ventana)
+    nueva_ventana2.geometry("900x600")
+    nueva_ventana2.title("Menú")
+    nueva_ventana2.focus_set()
+    etiqueta = tkinter.Label(nueva_ventana2, text="Menú", **estilo_etiqueta)
+    etiqueta.pack(fill=tkinter.X)
+    
+    # Botones para combinar
+    boton_todo = tkinter.Button(nueva_ventana2, text="Combinar Todo", command=combinar_todo, **estilo_boton)
+    boton_todo.pack(pady=10)
+
+    boton_pares = tkinter.Button(nueva_ventana2, text="Combinar por Pares", command=combina_pares, **estilo_boton)
+    boton_pares.pack(pady=10)
+    
+    boton_pares = tkinter.Button(nueva_ventana2, text="Combinar por Rangos", command=combina_rangos, **estilo_boton)
+    boton_pares.pack(pady=10)
+
+def modificar_cadena_con_posiciones(cadena, df, nombre_archivo):
+    cadena_resultante = cadena  # Inicializamos la cadena resultante con la cadena original
+    for index, row in df.iterrows():
+        posiciones = row['posicion']
+        alteraciones = row['alteracion']
+        
+        # Verificar si las posiciones y las alteraciones son válidas
+        if pd.isna(posiciones) or pd.isna(alteraciones):
+            continue
+        
+        # Convertir las posiciones a una lista de cadenas de texto
+        if isinstance(posiciones, int):  # Verificar si posiciones es un entero
+            posiciones = [str(posiciones)]
+        else:  # Si no es un entero, suponemos que es una cadena de texto
+            posiciones = [str(pos) for pos in posiciones.strip('[]').split(',') if pos.strip()]
+        
+        # Verificar si hay coincidencias entre las posiciones y la longitud de la cadena
+        if any(int(pos) > len(cadena_resultante) for pos in posiciones):
+            print(f"Advertencia: Al menos una posición en la fila {index} está fuera de los límites de la cadena.")
+            continue
+        
+        # Modificar la cadena resultante según las posiciones y las alteraciones
+        for pos, alteracion in zip(posiciones, alteraciones):
+            cadena_resultante = modificar_string(cadena_resultante, int(pos), alteracion)
+    
+    # Guardar la cadena resultante en un nuevo archivo CSV
+    imprimir_y_guardar_en_csv(cadena_resultante, nombre_archivo)
+
+
+
+def csv_archivo():
+    ventana_archivo = tk.Tk() # Crea una nueva ventana principal
+    ventana_archivo.withdraw() # Oculta la ventana principal
+    
+    # filedialog.askopenfilename nos ayuda a abrir la pestaña de archivos, y en filetypes se utiliza para que solo se abran archivos csv
+    archivo = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")]) 
+
+    # Si no se selecciona un archivo
+    if not archivo:
+        print("No hay ningun archivo seleccionado.....")
+        return
+
+    # Abrir archivo
+    df = pd.read_csv(archivo)  # Lee el archivo
+    print("Archivo seleccionado:", archivo)
+
+    # Declaramos la celda y columna donde se alacena la cadena de caracteres que queremos extraer
+    columna =  3 
+    fila = 0  
+
+    # Se extrae el contenido de una celda específica 
+    cadena = df.iloc[fila, columna]
+
+    # Muestra los datos extraidos en una nueva ventana
+    mostrar_datos(df)
+
+    # Habilita el botón Variar
+    boton2.config(state=tk.NORMAL)
+
+    # Imprime la cadena que extraímos
+    print("Cadena extraída de la celda:", cadena)
+    
+    # Modificar el string con las modificaciones especificadas en el dataframe
+    global strings_modificados  # Utilizamos la variable global
+    strings_modificados = []
+    string_modificado = cadena
+    for index, row in df.iterrows():
+        string_modificado = modificar_string(string_modificado, row['posicion'], row['alteracion'])
+        strings_modificados.append(string_modificado)
+        
+    # Procesar la cadena modificada
+    procesar_cadena(cadena, df)
+    
+        # Llamar a modificar_cadena_con_posiciones() para modificar la cadena original con las posiciones y alteraciones del DataFrame
+    modificar_cadena_con_posiciones(cadena, df, "cadena_resultante.csv")
+    
+    return cadena
+
+def mostrar_datos(df):
+    nueva_ventana1 = tkinter.Toplevel()
+    nueva_ventana1.geometry("1300x200")
+    nueva_ventana1.title("Datos del archivo CSV")
+
+    etiqueta = tkinter.Label(nueva_ventana1, text="Datos del archivo CSV:", **estilo_etiqueta)
+    etiqueta.pack(fill=tkinter.X)
+    
+    texto = tkinter.Text(nueva_ventana1, height=700, width=600)
+    texto.pack(pady=10)
+
+    texto.insert(tkinter.END, df.to_string(index=False))
+
+def imprimir_y_guardar_en_csv(texto, nombre_archivo):
+    # Imprimir en la consola
+    print(texto)
+    # Guardar en el archivo CSV
+    with open(nombre_archivo, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([texto])
+
+def combina_rangos():
+    def combinar():
+        # Obtener los rangos ingresados por el usuario
+        rango_inicio = int(entry_rango_inicio.get())
+        rango_fin = int(entry_rango_fin.get())
+
+        # Leer el archivo CSV
+        df = pd.read_csv('cadenas.csv')
+
+        # Filtrar el DataFrame para obtener las cadenas acumuladas y las posiciones correspondientes a los rangos dados por el usuario,
+        # excluyendo las filas que contienen NaN
+        df_rango = df.loc[(df['Num_cadena'] >= rango_inicio) & (df['Num_cadena'] <= rango_fin) & (~df['cadena_acumulada'].isna())]
+        # Verificar si el DataFrame filtrado no está vacío
+        if not df_rango.empty:
+            # Generar un nombre único para el archivo CSV
+            nombre_archivo = f'combinacion_{rango_inicio}_to_{rango_fin}.csv'
+            # Mostrar las cadenas acumuladas y las posiciones en la consola y guardar en el archivo CSV
+            imprimir_y_guardar_en_csv(f"Cadena original: {df_rango['cadena_original'].iloc[0]}", nombre_archivo)
+            for index, row in df_rango.iterrows():
+                imprimir_y_guardar_en_csv(f"Cadena acumulada del numero de cadena {row['Num_cadena']}: {row['cadena_acumulada']}", nombre_archivo)
+                imprimir_y_guardar_en_csv(f"Posiciones del numero de cadena {row['Num_cadena']}: {row['posiciones']}", nombre_archivo)
+            
+            # Generar todas las combinaciones posibles de posiciones entre los rangos
+            combinaciones_posiciones = []
+            for i in range(len(df_rango)):
+                for j in range(i+1, len(df_rango)):
+                    posiciones1 = df_rango.iloc[i]['posiciones']
+                    posiciones2 = df_rango.iloc[j]['posiciones']
+                    # Verificar si las posiciones no son NaN antes de agregarlas a las combinaciones
+                    if not pd.isna(posiciones1) and not pd.isna(posiciones2):
+                        combinaciones_posiciones.extend([(int(pos1), int(pos2)) for pos1 in posiciones1.strip('[]').split(',') for pos2 in posiciones2.strip('[]').split(',')])
+
+            # Llamar a mezclar_cadenas() para combinar las cadenas según las combinaciones de posiciones
+            for pos1, pos2 in combinaciones_posiciones:
+                # Obtener las cadenas acumuladas correspondientes a las posiciones
+                cadena_acumulada1 = df_rango[df_rango['posiciones'].str.contains(str(pos1))]['cadena_acumulada'].iloc[0]
+                cadena_acumulada2 = df_rango[df_rango['posiciones'].str.contains(str(pos2))]['cadena_acumulada'].iloc[0]
+                # Llamar a mezclar_cadenas() para combinar las cadenas
+                cadena_combinada = mezclar_cadenas(cadena_acumulada1, [pos1], cadena_acumulada2, [pos2])
+                # Imprimir y guardar en el archivo CSV
+                imprimir_y_guardar_en_csv(f'Cadena combinada para posiciones {pos1} y {pos2}: {cadena_combinada}', nombre_archivo)
+        else:
+            imprimir_y_guardar_en_csv('No se encontraron cadenas validas para los rangos especificados.', "informacion_combinacion.csv")
+
+    def mezclar_cadenas(cadena1, posiciones1, cadena2, posiciones2):
+        # Verificar si alguna cadena es vacía
+        if not cadena1:
+            return cadena2
+        elif not cadena2:
+            return cadena1
+
+        # Convertir las posiciones a conjuntos para facilitar la comparación
+        set_posiciones1 = set(posiciones1)
+        set_posiciones2 = set(posiciones2)
+
+        # Obtener las posiciones combinadas sin duplicados
+        posiciones_combinadas = set_posiciones1.union(set_posiciones2)
+
+        # Determinar la longitud de la cadena combinada
+        max_length = max(len(cadena1), len(cadena2))
+
+        # Inicializar la cadena combinada vacía
+        cadena_combinada = ""
+
+        # Iterar sobre las posiciones combinadas para construir la cadena combinada
+        for pos in range(max_length):
+            # Determinar qué cadena usar en la posición actual
+            if pos in set_posiciones2:
+                if pos < len(cadena2):
+                    cadena_combinada += cadena2[pos]
+            elif pos in set_posiciones1:
+                if pos < len(cadena1):
+                    cadena_combinada += cadena1[pos]
+            else:
+                # Si no hay modificación en esta posición, usar el carácter de cadena1 si está dentro de sus límites
+                if pos < len(cadena1):
+                    cadena_combinada += cadena1[pos]
+                # Si no, usar el carácter de cadena2 si está dentro de sus límites
+                elif pos < len(cadena2):
+                    cadena_combinada += cadena2[pos]
+
+        return cadena_combinada
+
+    ventana_rangos = tkinter.Toplevel()
+    ventana_rangos.geometry("400x200")
+    ventana_rangos.title("Ingrese el rango a combinar")
+
+    etiqueta_rango_inicio = tkinter.Label(ventana_rangos, text="Rango de inicio:")
+    etiqueta_rango_inicio.pack()
+
+    entry_rango_inicio = tkinter.Entry(ventana_rangos)
+    entry_rango_inicio.pack()
+
+    etiqueta_rango_fin = tkinter.Label(ventana_rangos, text="Rango de fin:")
+    etiqueta_rango_fin.pack()
+
+    entry_rango_fin = tkinter.Entry(ventana_rangos)
+    entry_rango_fin.pack()
+
+    boton_combinar = tkinter.Button(ventana_rangos, text="Combinar", command=combinar)
+    boton_combinar.pack()
+
+def combinar_todo():
+    # Mostrar todos los strings modificados en una ventana
+    nueva_ventana_combinar_todo = tkinter.Toplevel(ventana)
+    nueva_ventana_combinar_todo.geometry("900x1300")
+    nueva_ventana_combinar_todo.title("Combinar todo")
+
+    etiqueta = tkinter.Label(nueva_ventana_combinar_todo, text="Combinar todo:", **estilo_etiqueta)
+    etiqueta.pack(fill=tkinter.X)
+    
+    texto = tkinter.Text(nueva_ventana_combinar_todo, height=700, width=600)
+    texto.pack(pady=10)
+
+    # Mostrar todos los strings modificados en la ventana
+    for index, string_modificado in enumerate(strings_modificados, start=1):
+        texto.insert(tkinter.END, f"{index}. {string_modificado}\n\n")
+
+def combina_pares():
+    def combinar():
+        primer_numero = int(entry_primer_numero.get())
+        segundo_numero = int(entry_segundo_numero.get())
+
+        # Leer el archivo CSV
+        df = pd.read_csv('cadenas.csv')
+
+        # Filtrar el DataFrame para obtener las cadenas acumuladas y las posiciones correspondientes a los números de cadena dados
+        fila_primer_numero = df.loc[df['Num_cadena'] == primer_numero]
+        fila_segundo_numero = df.loc[df['Num_cadena'] == segundo_numero]
+
+        # Verificar si las filas no están vacías y extraer las cadenas acumuladas y las posiciones
+        if not fila_primer_numero.empty and not fila_segundo_numero.empty:
+            cadena_acumulada_primer_numero = fila_primer_numero['cadena_acumulada'].values[0]
+            cadena_acumulada_segundo_numero = fila_segundo_numero['cadena_acumulada'].values[0]
+            cadena_original_primer_numero = fila_primer_numero['cadena_original'].values[0]
+
+            posiciones_primer_numero = fila_primer_numero['posiciones'].values[0]
+            posiciones_segundo_numero = fila_segundo_numero['posiciones'].values[0]
+
+            # Convertir las posiciones a listas de enteros
+            posiciones_primer_numero = [int(pos) for pos in posiciones_primer_numero.strip('[]').split(',') if pos.strip()]
+            posiciones_segundo_numero = [int(pos) for pos in posiciones_segundo_numero.strip('[]').split(',') if pos.strip()]
+
+            # Mezclar las cadenas acumuladas del primer y segundo números de cadena según las posiciones
+            cadena_combinada = mezclar_cadenas(cadena_acumulada_primer_numero, posiciones_primer_numero,
+                                                cadena_acumulada_segundo_numero, posiciones_segundo_numero)
+            # Imprimir y guardar en el archivo CSV
+            imprimir_y_guardar_en_csv(f'Cadena combinada: {cadena_combinada}', f'combinacion_pares_{primer_numero}_and_{segundo_numero}.csv')
+            imprimir_y_guardar_en_csv(f'Cadena acumulada del primer numero de cadena ({primer_numero}): {cadena_acumulada_primer_numero}', f'combinacion_pares_{primer_numero}_and_{segundo_numero}.csv')
+            imprimir_y_guardar_en_csv(f'Cadena acumulada del segundo numero de cadena ({segundo_numero}): {cadena_acumulada_segundo_numero}', f'combinacion_pares_{primer_numero}_and_{segundo_numero}.csv')
+            imprimir_y_guardar_en_csv(f'Cadena original: {cadena_original_primer_numero}', f'combinacion_pares_{primer_numero}_and_{segundo_numero}.csv')
+            imprimir_y_guardar_en_csv(f'Posiciones del primer numero de cadena ({primer_numero}): {posiciones_primer_numero}', f'combinacion_pares_{primer_numero}_and_{segundo_numero}.csv')
+            imprimir_y_guardar_en_csv(f'Posiciones del segundo numero de cadena ({segundo_numero}): {posiciones_segundo_numero}', f'combinacion_pares_{primer_numero}_and_{segundo_numero}.csv')
+
+            # Generar todas las combinaciones posibles de posiciones entre posiciones_primer_numero y posiciones_segundo_numero
+            combinaciones_posiciones = [(pos1, pos2) for pos1 in posiciones_primer_numero for pos2 in posiciones_segundo_numero]
+
+            # Mezclar las cadenas acumuladas para cada combinación de posiciones
+            for pos1, pos2 in combinaciones_posiciones:
+                cadena_combinada = mezclar_cadenas(cadena_acumulada_primer_numero, [pos1], cadena_acumulada_segundo_numero, [pos2])
+                # Imprimir y guardar en el archivo CSV
+                imprimir_y_guardar_en_csv(f'Cadena combinada para posiciones {pos1} y {pos2}: {cadena_combinada}', f'combinacion_pares_{primer_numero}_and_{segundo_numero}.csv')
+        else:
+            imprimir_y_guardar_en_csv('Al menos una de las cadenas acumuladas no se encontró.', f'combinacion_pares_{primer_numero}_and_{segundo_numero}.csv')
+
+    def mezclar_cadenas(cadena1, posiciones1, cadena2, posiciones2):
+        # Convertir las posiciones a conjuntos para facilitar la comparación
+        set_posiciones1 = set(posiciones1)
+        set_posiciones2 = set(posiciones2)
+
+        # Obtener las posiciones combinadas sin duplicados
+        posiciones_combinadas = set_posiciones1.union(set_posiciones2)
+
+        # Determinar la longitud de la cadena combinada
+        max_length = max(len(cadena1), len(cadena2))
+
+        # Inicializar la cadena combinada vacía
+        cadena_combinada = ""
+
+        # Iterar sobre las posiciones combinadas para construir la cadena combinada
+        for pos in range(max_length):
+            # Determinar qué cadena usar en la posición actual
+            if pos in set_posiciones2:
+                if pos < len(cadena2):
+                    cadena_combinada += cadena2[pos]
+            elif pos in set_posiciones1:
+                if pos < len(cadena1):
+                    cadena_combinada += cadena1[pos]
+            else:
+                # Si no hay modificación en esta posición, usar el carácter de cadena1 si está dentro de sus límites
+                if pos < len(cadena1):
+                    cadena_combinada += cadena1[pos]
+                # Si no, usar el carácter de cadena2 si está dentro de sus límites
+                elif pos < len(cadena2):
+                    cadena_combinada += cadena2[pos]
+
+        return cadena_combinada
+
+    ventana_combinar_pares = tkinter.Toplevel()
+    ventana_combinar_pares.geometry("400x200")
+    ventana_combinar_pares.title("Combinar por pares")
+
+    etiqueta_primer_numero = tkinter.Label(ventana_combinar_pares, text="Ingrese el primer número de cadena:")
+    etiqueta_primer_numero.pack()
+
+    entry_primer_numero = tkinter.Entry(ventana_combinar_pares)
+    entry_primer_numero.pack()
+
+    etiqueta_segundo_numero = tkinter.Label(ventana_combinar_pares, text="Ingrese el segundo número de cadena:")
+    etiqueta_segundo_numero.pack()
+
+    entry_segundo_numero = tkinter.Entry(ventana_combinar_pares)
+    entry_segundo_numero.pack()
+
+    boton_combinar = tkinter.Button(ventana_combinar_pares, text="Combinar", command=combinar)
+    boton_combinar.pack()
+
+# Código principal
+ventana = tkinter.Tk()
+ventana.geometry("900x600")
+ventana.title("Pagina principal") 
+estilo_etiqueta = {
+    "font": ("Arial", 16),
+    "bg": "blue",
+    "fg": "white",
+}
+
+etiqueta = tkinter.Label(ventana, text="Bienvenidos", **estilo_etiqueta)
+etiqueta.pack(fill=tkinter.X)
+
+estilo_boton = {
+    "font": ("Arial", 12),
+    "bg": "#4CAF50",  
+    "fg": "white",
+}
+
+boton1 = tk.Button(ventana, text="Abrir archivo CSV", **estilo_boton, command=csv_archivo)
+boton1.pack(side=tkinter.TOP, padx=20, pady=10)
+
+boton2 = tkinter.Button(ventana, text="Variar", command=abrir_ventana, **estilo_boton, state=tkinter.DISABLED)
+boton2.pack(side=tkinter.BOTTOM, anchor="se", padx=20, pady=10)
+
+ventana.mainloop()
