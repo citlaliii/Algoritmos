@@ -1,0 +1,31 @@
+def leer_archivo(nombre_archivo):
+    try:
+        with open(nombre_archivo, 'r', encoding='utf-8') as archivo:
+            contenido = archivo.read()
+            caracteres = len(contenido)
+            contar_caracteres = {}
+            for letra in contenido:
+                if letra.isalpha():  # Verifica si el carácter es una letra
+                    contar_caracteres[letra] = contar_caracteres.get(letra, 0) + 1
+            
+            # Guardar el conteo en un archivo
+            with open("conteo_caracteres.txt", "w", encoding="utf-8") as archivo_salida:
+                for letra, cantidad in contar_caracteres.items():
+                    archivo_salida.write(f"'{letra}': {cantidad}\n")
+
+        return contenido, caracteres, contar_caracteres
+    except FileNotFoundError:
+        print(f"El archivo '{nombre_archivo}' no existe.")
+        return None, None, None
+
+nombre_archivo = "Gullivers_Travels.txt"
+contenido, caracteres, contar_caracteres = leer_archivo(nombre_archivo)
+
+if contenido:
+    print("Se abrió el archivo")
+    print(f"Número de caracteres: {caracteres}")
+    print("Conteo de caracteres:")
+    for letra, cantidad in contar_caracteres.items():
+        print(f"'{letra}': {cantidad}")
+
+print("El conteo de caracteres se ha guardado en 'prueba123.txt'.")
