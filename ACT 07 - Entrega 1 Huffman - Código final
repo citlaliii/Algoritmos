@@ -1,0 +1,134 @@
+from tkinter import *
+from tkinter import ttk
+from tkinter import filedialog
+from tkinter import messagebox
+
+#Función para leer el archivo
+def leer_archivo(nombre_archivo):
+    try:
+        with open(nombre_archivo, 'r', encoding='utf-8') as archivo:
+            contenido = archivo.read()
+            caracteres = len(contenido)
+            contar_caracteres = {}
+            for letra in contenido:
+                if letra.isalpha():  #Verifica si el carácter es una letra
+                    contar_caracteres[letra] = contar_caracteres.get(letra, 0) + 1
+            
+            #Guardar el conteo en un archivo
+            with open("conteo_caracteres.txt", "w", encoding="utf-8") as archivo_salida:
+                for letra, cantidad in contar_caracteres.items():
+                    archivo_salida.write(f"'{letra}': {cantidad}\n")
+
+        return contenido, caracteres, contar_caracteres
+    except FileNotFoundError:
+        print(f"El archivo '{nombre_archivo}' no existe.")
+        return None, None, None
+
+#Ventana principal
+def ventana_principal():
+    root = Tk()
+    root.title("Ventana principal")
+    frm = ttk.Frame(root, padding=100)
+    frm.grid()
+    ttk.Label(frm, text="Seleccione un archivo de texto").grid(column=0, row=0)
+    
+    #Crear un estilo para los botones
+    style = ttk.Style()
+    style.configure('TButton', padding=10, background="#007BFF")
+
+    #Botón para abrir el archivo
+    ttk.Button(frm, text="Examinar", command=principal, style='TButton').grid(column=0, row=12, pady=5)
+
+    #Botón para comprimir el archivo
+    ttk.Button(frm, text="Comprimir", command=comprimir_archivo, style='TButton').grid(column=0, row=16, pady=5)
+
+    #Botón para descomprimir el archivo
+    ttk.Button(frm, text="Descomprimir", command=descomprimir_archivo, style='TButton').grid(column=0, row=18, pady=5)
+
+    #Botón para salir
+    ttk.Button(frm, text="Salir", command=root.quit, style='TButton').grid(column=0, row=20, pady=5)
+    
+    root.mainloop()
+
+#Ventana donde se muestra el texto del archivo
+def ventana_texto(contenido, contar_caracteres):
+    root = Tk()
+    root.title("Texto del archivo")
+    frm = ttk.Frame(root, padding=10)
+    frm.grid()
+    ttk.Label(frm, text="Texto del archivo").grid(column=0, row=0)
+    
+    #Widget para mostrar el contenido del archivo
+    texto = Text(frm, wrap=WORD, width=150, height=30)
+    texto.insert(END, contenido)
+    texto.grid(column=0, row=1, padx=10, pady=10)
+    
+    #Barra de desplazamiento
+    scrollbar = ttk.Scrollbar(frm, orient=VERTICAL, command=texto.yview)
+    scrollbar.grid(column=1, row=1, sticky=(N,S))
+    texto.config(yscrollcommand=scrollbar.set)
+    ttk.Label(frm, text="El conteo de caracteres se ha guardado en conteo_caracteres.txt.").grid(column=0, row=10)
+    
+    #Boton para abrir la ventana de caracteres
+    ttk.Button(frm, text="Conteo de caracteres", command=lambda: ventana_caracteres(contar_caracteres, len(contenido))).grid(column=0, row=12)
+    root.mainloop()
+    
+def comprimir_archivo():
+    #Contenido para comprimir
+
+def descomprimir_archivo():
+    #Contenido para descomprimir
+
+#Ventana de la frecuencia de caracteres
+def ventana_caracteres(contar_caracteres, caracteres):
+    root = Tk()
+    root.title("Frecuencia de los caracteres")  
+    
+    #Crear un contenedor para contener los widgets de la ventana
+    frm = ttk.Frame(root, padding=30)
+    frm.grid(row=0, column=0, sticky=(N, S, E, W))  
+    ttk.Label(frm, text="Frecuencia de los caracteres").grid(column=0, row=0, columnspan=2, pady=10)
+    
+    #Crear un contenedor para la lista de caracteres 
+    conteo_frame = ttk.Frame(frm)
+    conteo_frame.grid(column=0, row=2, pady=10)
+    
+    #Crear una barra de desplazamiento
+    scrollbar = ttk.Scrollbar(conteo_frame, orient=VERTICAL)
+    scrollbar.pack(side=RIGHT, fill=Y)
+    
+    #Crear una lista para mostrar el conteo de caracteres
+    lista_caracteres = Listbox(conteo_frame, yscrollcommand=scrollbar.set)
+    
+    #Se imprime la lista con el conteo de caracteres
+    for letra, cantidad in contar_caracteres.items():
+        lista_caracteres.insert(END, f"'{letra}': {cantidad}")
+    
+    #Ubicar la lista en el Frame y conectarla con la barra de desplazamiento
+    lista_caracteres.pack(side=LEFT, fill=BOTH)
+    scrollbar.config(command=lista_caracteres.yview)
+    
+
+#Funcion principal
+def principal():
+    #Abre el explorador de archivos
+    nombre_archivo = filedialog.askopenfilename()
+    
+    #Lee el archivo
+    contenido, caracteres, contar_caracteres = leer_archivo(nombre_archivo)
+    
+    #Se imprime estos datos en la consola
+    if contenido:
+        print("Se abrió el archivo")
+        print(f"Número de caracteres: {caracteres}")
+        print("Conteo de caracteres:")
+        for letra, cantidad in contar_caracteres.items():
+            print(f"'{letra}': {cantidad}")
+
+    print("El conteo de caracteres se ha guardado en 'conteo_caracteres.txt'.")
+    
+    #Se manda a llamar la ventana_texto
+    ventana_texto(contenido, contar_caracteres)
+    
+#Llama a la ventana principal
+ventana_principal()
